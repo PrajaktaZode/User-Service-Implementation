@@ -2,15 +2,14 @@ package com.example.userService.controllers;
 
 import com.example.userService.dtos.*;
 import com.example.userService.exceptions.UserAlreadyExistsException;
+import com.example.userService.exceptions.UserNotFoundException;
+import com.example.userService.exceptions.WrongPasswordException;
 import com.example.userService.services.AuthService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/auth")
@@ -39,7 +38,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponseDto> login(@RequestBody LoginRequestDto request) {
+    public ResponseEntity<LoginResponseDto> login(@RequestBody LoginRequestDto request) throws UserNotFoundException, WrongPasswordException {
         String token = authService.login(request.getEmail(), request.getPassword());
         LoginResponseDto loginDto = new LoginResponseDto();
         loginDto.setRequestStatus(RequestStatus.SUCCESS);
@@ -48,5 +47,10 @@ public class AuthController {
         ResponseEntity<LoginResponseDto> response = new ResponseEntity<>(
                 loginDto, headers, HttpStatus.OK);
         return response;
+    }
+
+    @GetMapping("/validate")
+    public boolean validate(@RequestParam("token") String token) {
+        return authService.validate(token);
     }
 }

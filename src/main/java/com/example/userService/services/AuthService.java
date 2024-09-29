@@ -3,8 +3,12 @@ package com.example.userService.services;
 import com.example.userService.exceptions.UserAlreadyExistsException;
 import com.example.userService.exceptions.UserNotFoundException;
 import com.example.userService.exceptions.WrongPasswordException;
+import com.example.userService.models.Session;
 import com.example.userService.models.User;
+import com.example.userService.repositories.SessionRepository;
 import com.example.userService.repositories.UserRepository;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -17,11 +21,14 @@ public class AuthService {
     private UserRepository userRepository;
     private BCryptPasswordEncoder bCryptPasswordEncoder;
     private SecretKey key = Jwts.SIG.HS256.key().build();
+    private SessionRepository sessionRepository;
 
 
-    public AuthService(UserRepository userRepository, BCryptPasswordEncoder bCryptPasswordEncoder) {
+    public AuthService(UserRepository userRepository, BCryptPasswordEncoder bCryptPasswordEncoder,
+                       SessionRepository sessionRepository) {
         this.userRepository = userRepository;
         this.bCryptPasswordEncoder = bCryptPasswordEncoder;
+        this.sessionRepository = sessionRepository;
     }
 
     public boolean signUp(String email, String password) throws UserAlreadyExistsException {
@@ -46,7 +53,18 @@ public class AuthService {
 
         boolean matches = bCryptPasswordEncoder.matches(password, userOptional.get().getPassword());
         if (matches) {
-            return "token";
+            //return "token";
+            String token = createJwtToken(userOptional.get().getId(),
+                    new ArrayList<>(), userOptional.get().getEmail());
+
+            Session session = new Session();
+            session.setToken(token);
+            session.setUser(userOptional.get());
+            //session.setExpiringAt(datePlus30Days);
+            sessionRepository.save(session);
+
+            return token;
+
         } else {
             throw new WrongPasswordException("Wrong Password");
         }
@@ -67,5 +85,21 @@ public class AuthService {
 
         return token;
 
+    }
+
+    public boolean validate(String token) {
+        try {
+            Jws<Claims> claims = Jwts.parser()
+                    .verifyWith(key)
+                    .build()
+                    .parseSignedClaims(token);
+
+            Date expiryAt = claims.getPayload().getExpiration();
+            Long userId = claims.getPayload().get("user_id", Long.class);
+
+        } catch (Exception e) {
+            return false;
+        }
+        return true;
     }
 }
